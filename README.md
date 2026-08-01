@@ -14,3 +14,11 @@ Use Selected Hitsound to inject it directly into your TF2 custom folder.
 ## Audio Issues
 
 Please DM me on discord if you find any audio issues
+
+## Todo/Known Issues
+
+Currently accepting feature requests and bug reports.
+
+## License
+
+This project uses the [MIT License](https://mit-license.org/).

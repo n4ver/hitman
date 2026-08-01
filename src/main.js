@@ -14,6 +14,7 @@ const elements = {
     minPitchVal: document.getElementById('min-pitch-val'),
     maxPitchVal: document.getElementById('max-pitch-val'),
     damageInput: document.getElementById('damage-input'),
+    damageInputVal: document.getElementById('damage-input-val'),
     btnTestPlay: document.getElementById('btn-test-play'),
     btnUse: document.getElementById('btn-use'),
     consoleCommands: document.getElementById('console-commands')
@@ -53,6 +54,10 @@ elements.maxPitchSlider.addEventListener('input', (e) => {
     elements.maxPitchVal.textContent = e.target.value; // Updates the text
     updateConsoleCommands();
 });
+
+elements.damageInput.addEventListener('input', (e) => {
+    elements.damageInputVal.textContent = e.target.value;
+})
 
 elements.btnTestPlay.addEventListener('click', () => {
     if (selectedHitsound) {

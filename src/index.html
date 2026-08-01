@@ -14,15 +14,26 @@
             <div id="hitsound-list" class="list-container">
                 <!-- Populated by JS -->
             </div>
+            <button id="btn-import" class="primary">Import Hitsound</button>
         </aside>
 
         <!-- Right Side: Controls & Usage -->
         <main class="right-panel">
             <section class="config-section">
-                <button id="btn-select-folder">Select TF2 custom Folder</button>
-                <p id="folder-path" class="path-display">No folder selected</p>
-                <button id="btn-import" class="primary">Import Hitsound</button>
+                <div style="display: flex; align-items: center; gap: 10px">
+                    <button id="btn-select-folder">Select TF2 custom Folder</button>
+                    <p style="font-size:smaller" id="folder-path" class="path-display">No folder selected</p>
+                </div>
             </section>
+
+            <details class="info">
+                <summary>Click here for more info</summary>
+                <div>
+                    <p>Click Select TF2 Folder and navigate to your custom directory.</p>
+                    <p>Click Import Hitsound and select a .wav file to add to your library.</p>
+                    <p>Click on a hitsound, adjust your pitch preferences, and simulate a damage number. Click Play Test to hear how it sounds. </p>
+                </div>
+            </details>
 
             <section class="test-section">
                 <div class="control-group">
@@ -34,8 +45,8 @@
                     <input type="range" id="max-pitch-slider" min="1" max="255" value="100">
                 </div>
                 <div class="control-group">
-                    <label for="damage-input">Damage Test</label>
-                    <input type="number" id="damage-input" value="65" min="1">
+                    <label for="damage-input">Damage Test (<span id="damage-input-val">65</span>)</label>
+                    <input type="range" id="damage-input" min="10" max="150" value="65">
                 </div>
                 <button id="btn-test-play">Play Sound</button>
             </section>
@@ -45,7 +56,7 @@
                 
                 <div class="console-output">
                     <label>Console Commands:</label>
-                    <textarea id="console-commands" readonly rows="4">tf_dingalingaling 1&#10;tf_dingaling_pitchmindmg 100&#10;tf_dingaling_pitchmaxdmg 100</textarea>
+                    <textarea id="console-commands" readonly rows="4">tf_dingaling_pitchmindmg 100&#10;tf_dingaling_pitchmaxdmg 100</textarea>
                 </div>
             </section>
         </main>

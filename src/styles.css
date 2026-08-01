@@ -1,0 +1,114 @@
+:root {
+    --bg-dark: #1e1e1e;
+    --bg-panel: #2d2d2d;
+    --text: #f0f0f0;
+    --accent: #d8682a; /* TF2 Orange */
+    --accent-hover: #b55621;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text);
+    height: 100vh;
+}
+
+.layout {
+    display: flex;
+    height: 100%;
+}
+
+.left-panel {
+    width: 35%;
+    background-color: var(--bg-panel);
+    border-right: 1px solid #444;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.list-container {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 1rem;
+}
+
+.hitsound-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: #3a3a3a;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.hitsound-item.selected {
+    border: 1px solid var(--accent);
+    background: #4a3a32;
+}
+
+.right-panel {
+    width: 65%;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+button {
+    background-color: #444;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+button:hover { background-color: #555; }
+button.primary { background-color: var(--accent); }
+button.primary:hover { background-color: var(--accent-hover); }
+button.success { background-color: #3b823e; padding: 1rem; font-size: 1.1rem; width: 100%;}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}
+
+input[type="range"] { width: 100%; }
+textarea {
+    width: 100%;
+    background: #111;
+    color: #0f0;
+    font-family: monospace;
+    border: 1px solid #444;
+    padding: 0.5rem;
+    resize: none;
+}
+
+.hitsound-name {
+    flex-grow: 1;
+    user-select: none;
+}
+
+.btn-delete {
+    background-color: transparent;
+    color: #ff4c4c;
+    border: 1px solid #ff4c4c;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: 0.2s;
+}
+
+.btn-delete:hover {
+    background-color: #ff4c4c;
+    color: white;
+}

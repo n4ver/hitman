@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hitman</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="layout">
+        <!-- Left Side: Hitsound Library -->
+        <aside class="left-panel">
+            <h2>Your Hitsounds</h2>
+            <div id="hitsound-list" class="list-container">
+                <!-- Populated by JS -->
+            </div>
+        </aside>
+
+        <!-- Right Side: Controls & Usage -->
+        <main class="right-panel">
+            <section class="config-section">
+                <button id="btn-select-folder">Select TF2 custom Folder</button>
+                <p id="folder-path" class="path-display">No folder selected</p>
+                <button id="btn-import" class="primary">Import Hitsound</button>
+            </section>
+
+            <section class="test-section">
+                <div class="control-group">
+                    <label for="min-pitch-slider">Min Pitch (<span id="min-pitch-val">100</span>)</label>
+                    <input type="range" id="min-pitch-slider" min="1" max="255" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="max-pitch-slider">Max Pitch (<span id="max-pitch-val">100</span>)</label>
+                    <input type="range" id="max-pitch-slider" min="1" max="255" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="damage-input">Damage Test</label>
+                    <input type="number" id="damage-input" value="65" min="1">
+                </div>
+                <button id="btn-test-play">Play Test</button>
+            </section>
+
+            <section class="action-section">
+                <button id="btn-use" class="success" disabled>Use Selected Hitsound</button>
+                
+                <div class="console-output">
+                    <label>Console Commands:</label>
+                    <textarea id="console-commands" readonly rows="4">tf_dingalingaling 1&#10;tf_dingaling_pitchmindmg 100&#10;tf_dingaling_pitchmaxdmg 100</textarea>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -24,6 +24,14 @@
                     <button id="btn-select-folder">Select TF2 custom Folder</button>
                     <p style="font-size:smaller" id="folder-path" class="path-display">No folder selected</p>
                 </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                    <label for="config-mode">Config mode</label>
+                    <select id="config-mode">
+                        <option value="auto" selected>Auto-detect</option>
+                        <option value="vanilla">Vanilla TF2</option>
+                        <option value="mastercomfig">Mastercomfig</option>
+                    </select>
+                </div>
             </section>
 
             <details class="info">
@@ -31,7 +39,8 @@
                 <div>
                     <p>Click Select TF2 Folder and navigate to your custom directory.</p>
                     <p>Click Import Hitsound and select a .wav file to add to your library.</p>
-                    <p>Click on a hitsound, adjust your pitch preferences, and simulate a damage number. Click Play Test to hear how it sounds. </p>
+                    <p>Click on a hitsound, adjust your pitch preferences, and simulate a damage number. Click Play Test to hear how it sounds.</p>
+                    <p>Apply Hitsound copies the selected .wav into your TF2 custom folder. Write hitman.cfg saves every remembered hitsound into one cfg file, and can optionally add exec hitman.cfg to autoexec after you confirm it.</p>
                 </div>
             </details>
 
@@ -52,11 +61,15 @@
             </section>
 
             <section class="action-section">
-                <button id="btn-use" class="success" disabled>Update Hitsound In-game</button>
+                <div class="action-buttons">
+                    <button id="btn-apply" class="success" disabled>Apply Hitsound</button>
+                    <button id="btn-write-cfg" class="secondary" disabled>Write hitman.cfg</button>
+                    <button id="btn-reset-pitch" class="secondary" disabled>Reset Pitch</button>
+                </div>
                 
                 <div class="console-output">
                     <label>Console Commands:</label>
-                    <textarea id="console-commands" readonly rows="4">tf_dingaling_pitchmindmg 100&#10;tf_dingaling_pitchmaxdmg 100</textarea>
+                    <textarea id="console-commands" readonly rows="3">Select a hitsound to preview the generated hitman.cfg.</textarea>
                 </div>
             </section>
         </main>

@@ -2,6 +2,8 @@ const { invoke } = window.__TAURI__.core;
 
 // State
 let selectedHitsound = null;
+let selectionNonce = 0;
+let selectedAlias = null;
 
 // DOM Elements
 const elements = {
@@ -16,8 +18,11 @@ const elements = {
     damageInput: document.getElementById('damage-input'),
     damageInputVal: document.getElementById('damage-input-val'),
     btnTestPlay: document.getElementById('btn-test-play'),
-    btnUse: document.getElementById('btn-use'),
-    consoleCommands: document.getElementById('console-commands')
+    btnApply: document.getElementById('btn-apply'),
+    btnWriteCfg: document.getElementById('btn-write-cfg'),
+    btnResetPitch: document.getElementById('btn-reset-pitch'),
+    consoleCommands: document.getElementById('console-commands'),
+    configMode: document.getElementById('config-mode')
 };
 
 // Initialize
@@ -42,18 +47,16 @@ elements.btnImport.addEventListener('click', async () => {
     }
 });
 
-elements.minPitchSlider.addEventListener('input', updateConsoleCommands);
-elements.maxPitchSlider.addEventListener('input', updateConsoleCommands);
-
-elements.minPitchSlider.addEventListener('input', (e) => {
-    elements.minPitchVal.textContent = e.target.value; // Updates the text
-    updateConsoleCommands();
+elements.minPitchSlider.addEventListener('input', () => {
+    elements.minPitchVal.textContent = elements.minPitchSlider.value;
+    void updateConsoleCommands();
 });
 
-elements.maxPitchSlider.addEventListener('input', (e) => {
-    elements.maxPitchVal.textContent = e.target.value; // Updates the text
-    updateConsoleCommands();
+elements.maxPitchSlider.addEventListener('input', () => {
+    elements.maxPitchVal.textContent = elements.maxPitchSlider.value;
+    void updateConsoleCommands();
 });
+elements.configMode.addEventListener('change', () => void updateConsoleCommands());
 
 elements.damageInput.addEventListener('input', (e) => {
     elements.damageInputVal.textContent = e.target.value;
@@ -65,13 +68,47 @@ elements.btnTestPlay.addEventListener('click', () => {
     }
 });
 
-elements.btnUse.addEventListener('click', async () => {
+elements.btnApply.addEventListener('click', async () => {
     if (!selectedHitsound) return;
     try {
+        await persistCurrentPitch();
         const msg = await invoke('use_hitsound', { hitsoundName: selectedHitsound });
         alert(msg);
     } catch (e) {
         alert("Error: " + e);
+    }
+});
+
+elements.btnWriteCfg.addEventListener('click', async () => {
+    if (!selectedHitsound) return;
+    try {
+        await persistCurrentPitch();
+
+        const cfgMsg = await invoke('write_hitman_cfg', {
+            configMode: elements.configMode.value
+        });
+
+        let linkMsg = 'Skipped autoexec integration.';
+        if (confirm('Add "exec hitman.cfg" to your TF2 autoexec file now?')) {
+            linkMsg = await invoke('link_hitman_cfg_to_autoexec_with_mode', {
+                configMode: elements.configMode.value
+            });
+        }
+
+        alert(`${cfgMsg}\n${linkMsg}`);
+    } catch (e) {
+        alert("Error: " + e);
+    }
+});
+
+elements.btnResetPitch.addEventListener('click', async () => {
+    if (!selectedHitsound) return;
+
+    try {
+        const selectionToken = ++selectionNonce;
+        await restorePitchForHitsound(selectedHitsound, selectionToken);
+    } catch (e) {
+        console.error("Failed to reset pitch:", e);
     }
 });
 
@@ -84,26 +121,57 @@ async function refreshHitsoundList() {
         hitsounds.forEach(name => {
             const div = document.createElement('div');
             div.className = 'hitsound-item';
+
+            const contentWrap = document.createElement('div');
+            contentWrap.className = 'hitsound-content';
             
             // The text span
             const nameSpan = document.createElement('span');
             nameSpan.className = 'hitsound-name';
             nameSpan.textContent = name;
+
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'hitsound-meta';
+            metaSpan.textContent = selectedHitsound === name ? buildHitsoundMetaText() : '';
             
             // The delete button
             const delBtn = document.createElement('button');
             delBtn.className = 'btn-delete';
             delBtn.textContent = '-';
             
-            div.appendChild(nameSpan);
+            contentWrap.appendChild(nameSpan);
+            contentWrap.appendChild(metaSpan);
+            div.appendChild(contentWrap);
             div.appendChild(delBtn);
             
             // Selection logic
-            div.addEventListener('click', () => {
+            div.addEventListener('click', async () => {
                 document.querySelectorAll('.hitsound-item').forEach(el => el.classList.remove('selected'));
-                div.classList.add('selected');
+                if (selectedHitsound === name) {
+                    div.classList.add('selected');
+                    return;
+                }
+
+                const previousHitsound = selectedHitsound;
+                const currentSelection = ++selectionNonce;
+
+                if (previousHitsound) {
+                    await persistPitchForHitsound(previousHitsound);
+                    if (currentSelection !== selectionNonce) return;
+                }
+
                 selectedHitsound = name;
-                elements.btnUse.disabled = false;
+                selectedAlias = null;
+                div.classList.add('selected');
+                elements.btnApply.disabled = false;
+                elements.btnWriteCfg.disabled = false;
+                elements.btnResetPitch.disabled = false;
+                const alias = await fetchHitsoundAlias(name);
+                if (currentSelection !== selectionNonce) return;
+                selectedAlias = alias;
+                void updateConsoleCommands();
+                syncSelectedItemMeta();
+                void restorePitchForHitsound(name, currentSelection);
             });
             
             // Double click to rename
@@ -111,6 +179,9 @@ async function refreshHitsoundList() {
                 const newName = prompt("Rename hitsound:", name.replace('.wav', ''));
                 if (newName && newName !== name) {
                     await invoke('rename_hitsound', { oldName: name, newName });
+                    if (selectedHitsound === name) {
+                        selectedHitsound = newName.endsWith('.wav') ? newName : `${newName}.wav`;
+                    }
                     refreshHitsoundList();
                 }
             });
@@ -124,7 +195,10 @@ async function refreshHitsoundList() {
                         // Clear selection if they deleted the currently selected item
                         if (selectedHitsound === name) {
                             selectedHitsound = null;
-                            elements.btnUse.disabled = true;
+                            selectedAlias = null;
+                            elements.btnApply.disabled = true;
+                            elements.btnWriteCfg.disabled = true;
+                            elements.btnResetPitch.disabled = true;
                         }
                         refreshHitsoundList();
                     } catch (err) {
@@ -134,9 +208,104 @@ async function refreshHitsoundList() {
             });
 
             elements.hitsoundList.appendChild(div);
+
+            if (selectedHitsound === name) {
+                div.classList.add('selected');
+                elements.btnApply.disabled = false;
+                elements.btnWriteCfg.disabled = false;
+                elements.btnResetPitch.disabled = false;
+                void refreshSelectedAlias(name);
+            }
         });
     } catch (e) {
         console.error("Failed to load hitsounds:", e);
+    }
+}
+
+function getCurrentPitchValues() {
+    return {
+        minPitch: Number(elements.minPitchSlider.value),
+        maxPitch: Number(elements.maxPitchSlider.value),
+    };
+}
+
+function setPitchValues(minPitch, maxPitch) {
+    elements.minPitchSlider.value = minPitch;
+    elements.maxPitchSlider.value = maxPitch;
+    elements.minPitchVal.textContent = minPitch;
+    elements.maxPitchVal.textContent = maxPitch;
+    updateConsoleCommands();
+    syncSelectedItemMeta();
+}
+
+async function restorePitchForHitsound(hitsoundName, selectionId) {
+    try {
+        const pitchSettings = await invoke('get_hitsound_pitch', { hitsoundName });
+        if (selectionId !== selectionNonce) return;
+
+        if (!pitchSettings) {
+            setPitchValues(100, 100);
+            return;
+        }
+
+        setPitchValues(pitchSettings.min_pitch, pitchSettings.max_pitch);
+    } catch (e) {
+        console.error("Failed to restore saved pitch:", e);
+    }
+}
+
+async function fetchHitsoundAlias(hitsoundName) {
+    try {
+        return await invoke('get_hitsound_alias', { hitsoundName });
+    } catch (e) {
+        console.error("Failed to fetch hitsound alias:", e);
+        return hitsoundName.replace(/\.wav$/i, '').replace(/[^a-z0-9_-]/gi, '_');
+    }
+}
+
+async function refreshSelectedAlias(hitsoundName) {
+    selectedAlias = await fetchHitsoundAlias(hitsoundName);
+    void updateConsoleCommands();
+    syncSelectedItemMeta();
+}
+
+async function persistCurrentPitch() {
+    if (!selectedHitsound) return;
+
+    try {
+        const { minPitch, maxPitch } = getCurrentPitchValues();
+        await invoke('save_hitsound_pitch', {
+            hitsoundName: selectedHitsound,
+            minPitch,
+            maxPitch
+        });
+    } catch (e) {
+        console.error("Failed to save pitch:", e);
+    }
+}
+
+async function persistPitchForHitsound(hitsoundName) {
+    const { minPitch, maxPitch } = getCurrentPitchValues();
+    await invoke('save_hitsound_pitch', {
+        hitsoundName,
+        minPitch,
+        maxPitch
+    });
+}
+
+function buildHitsoundMetaText() {
+    if (!selectedHitsound) return '';
+
+    const minPitch = elements.minPitchSlider.value;
+    const maxPitch = elements.maxPitchSlider.value;
+    const aliasPart = selectedAlias ? `Alias: ${selectedAlias}` : 'Alias loading...';
+    return `${aliasPart} • Pitch ${minPitch}/${maxPitch}`;
+}
+
+function syncSelectedItemMeta() {
+    const selectedItem = document.querySelector('.hitsound-item.selected .hitsound-meta');
+    if (selectedItem) {
+        selectedItem.textContent = buildHitsoundMetaText();
     }
 }
 
@@ -170,10 +339,27 @@ async function playAudio(filename) {
     }
 }
 
-function updateConsoleCommands() {
+async function updateConsoleCommands() {
     const minPitch = elements.minPitchSlider.value;
     const maxPitch = elements.maxPitchSlider.value;
-    elements.consoleCommands.value = 
-`tf_dingaling_pitchmindmg ${minPitch}
+    const configMode = elements.configMode.value;
+    const modeLabel = configMode === 'auto' ? 'Auto-detect' : configMode === 'mastercomfig' ? 'Mastercomfig' : 'Vanilla TF2';
+
+    if (!selectedHitsound) {
+        elements.consoleCommands.value =
+`Select a hitsound to preview the generated hitman.cfg.
+Config mode: ${modeLabel}
+tf_dingaling_pitchmindmg ${minPitch}
 tf_dingaling_pitchmaxdmg ${maxPitch}`;
+        return;
+    }
+
+    if (!selectedAlias) {
+        selectedAlias = await fetchHitsoundAlias(selectedHitsound);
+    }
+    syncSelectedItemMeta();
+
+    elements.consoleCommands.value = 
+`alias "${selectedAlias}" "tf_dingaling_pitchmindmg ${minPitch}; tf_dingaling_pitchmaxdmg ${maxPitch};"
+${selectedAlias};`;
 }

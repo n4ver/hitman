@@ -1,166 +1,23 @@
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::fs::{copy, create_dir_all, read_dir, read_to_string, remove_file, rename, write, File};
+use std::fs::{copy, create_dir_all, read_dir, remove_file, rename, write, File};
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, State, Manager};
 use tauri_plugin_dialog::DialogExt;
 use rodio::{Decoder, OutputStream, Sink};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct PitchRecord {
-    filename: String,
-    content_hash: String,
-    min_pitch: u32,
-    max_pitch: u32,
-}
+mod helpers;
+mod manifest;
+mod tf2;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct PitchManifest {
-    records: Vec<PitchRecord>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct PitchSettings {
-    min_pitch: u32,
-    max_pitch: u32,
-}
+pub use helpers::*;
+pub use manifest::*;
+pub use tf2::*;
 
 struct AppState {
     tf2_dir: Mutex<Option<PathBuf>>,
     app_data_dir: PathBuf,
     pitch_manifest: Mutex<PitchManifest>,
-}
-
-fn sanitize_cfg_name(name: &str) -> String {
-    name.chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-fn pitch_manifest_path(app_data_dir: &Path) -> PathBuf {
-    app_data_dir.join("pitch_manifest.json")
-}
-
-fn load_pitch_manifest(app_data_dir: &Path) -> PitchManifest {
-    let manifest_path = pitch_manifest_path(app_data_dir);
-    let manifest_text = read_to_string(manifest_path).unwrap_or_default();
-
-    serde_json::from_str(&manifest_text).unwrap_or_default()
-}
-
-fn save_pitch_manifest(app_data_dir: &Path, manifest: &PitchManifest) -> Result<(), String> {
-    let manifest_path = pitch_manifest_path(app_data_dir);
-    let manifest_text = serde_json::to_string_pretty(manifest).map_err(|e| e.to_string())?;
-    write(manifest_path, manifest_text).map_err(|e| e.to_string())
-}
-
-fn compute_file_hash(file_path: &Path) -> Result<String, String> {
-    let file_bytes = std::fs::read(file_path).map_err(|e| e.to_string())?;
-    let digest = Sha256::digest(file_bytes);
-    Ok(digest.iter().map(|byte| format!("{:02x}", byte)).collect())
-}
-
-fn normalize_hitsound_filename(name: &str) -> String {
-    if name.ends_with(".wav") {
-        name.to_string()
-    } else {
-        format!("{}.wav", name)
-    }
-}
-
-fn build_cfg_alias_name(filename: &str, content_hash: &str) -> String {
-    let stem = filename.trim_end_matches(".wav");
-    let hash_prefix = &content_hash[..content_hash.len().min(8)];
-    format!(
-        "hitman_apply_{}_{}",
-        sanitize_cfg_name(stem),
-        sanitize_cfg_name(hash_prefix)
-    )
-}
-
-fn find_pitch_record<'a>(manifest: &'a PitchManifest, filename: &str, content_hash: &str) -> Option<&'a PitchRecord> {
-    manifest
-        .records
-        .iter()
-        .find(|record| record.filename == filename || record.content_hash == content_hash)
-}
-
-fn upsert_pitch_record(
-    manifest: &mut PitchManifest,
-    filename: String,
-    content_hash: String,
-    min_pitch: u32,
-    max_pitch: u32,
-) {
-    if let Some(record) = manifest
-        .records
-        .iter_mut()
-        .find(|record| record.filename == filename || record.content_hash == content_hash)
-    {
-        record.filename = filename;
-        record.content_hash = content_hash;
-        record.min_pitch = min_pitch;
-        record.max_pitch = max_pitch;
-        return;
-    }
-
-    manifest.records.push(PitchRecord {
-        filename,
-        content_hash,
-        min_pitch,
-        max_pitch,
-    });
-}
-
-fn remove_pitch_record(manifest: &mut PitchManifest, filename: &str, content_hash: Option<&str>) {
-    manifest.records.retain(|record| {
-        let filename_match = record.filename == filename;
-        let hash_match = content_hash
-            .map(|hash| record.content_hash == hash)
-            .unwrap_or(false);
-        !(filename_match || hash_match)
-    });
-}
-
-fn update_pitch_manifest(
-    app_data_dir: &Path,
-    manifest: &mut PitchManifest,
-    filename: &str,
-    min_pitch: u32,
-    max_pitch: u32,
-) -> Result<(), String> {
-    let file_path = app_data_dir.join(filename);
-    let content_hash = compute_file_hash(&file_path)?;
-    upsert_pitch_record(
-        manifest,
-        normalize_hitsound_filename(filename),
-        content_hash,
-        min_pitch,
-        max_pitch,
-    );
-    save_pitch_manifest(app_data_dir, manifest)
-}
-
-fn get_pitch_settings_for_file(
-    app_data_dir: &Path,
-    manifest: &PitchManifest,
-    filename: &str,
-) -> Result<Option<PitchSettings>, String> {
-    let file_path = app_data_dir.join(filename);
-    let content_hash = compute_file_hash(&file_path)?;
-
-    Ok(find_pitch_record(manifest, filename, &content_hash).map(|record| PitchSettings {
-        min_pitch: record.min_pitch,
-        max_pitch: record.max_pitch,
-    }))
 }
 
 #[tauri::command]
@@ -174,96 +31,67 @@ fn get_hitsound_alias(state: State<'_, AppState>, hitsound_name: String) -> Resu
     Ok(build_cfg_alias_name(&hitsound_name, &content_hash))
 }
 
-fn resolve_tf2_root(tf2_custom_dir: &PathBuf) -> Result<PathBuf, String> {
-    let folder_name = tf2_custom_dir
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or("Invalid TF2 custom folder")?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::self;
+    use std::path::PathBuf;
 
-    if folder_name.eq_ignore_ascii_case("custom") {
-        tf2_custom_dir
-            .parent()
-            .map(|path| path.to_path_buf())
-            .ok_or("Could not resolve TF2 root folder".to_string())
-    } else {
-        Ok(tf2_custom_dir.clone())
-    }
-}
-
-fn build_hitman_cfg_content(records: &[PitchRecord]) -> String {
-    let mut sorted_records = records.to_vec();
-    sorted_records.sort_by(|left, right| {
-        left.filename
-            .cmp(&right.filename)
-            .then(left.content_hash.cmp(&right.content_hash))
-    });
-
-    let mut content = String::from("// Generated by Hitman\n");
-
-    if sorted_records.is_empty() {
-        content.push_str("// No remembered hitsounds yet\n");
-        return content;
+    #[test]
+    fn test_sanitize_cfg_name() {
+        assert_eq!(sanitize_cfg_name("hello world"), "hello_world");
+        assert_eq!(sanitize_cfg_name("Weird/Name#123"), "Weird_Name_123");
     }
 
-    for record in sorted_records {
-        let alias_name = build_cfg_alias_name(&record.filename, &record.content_hash);
-        content.push_str(&format!(
-            concat!(
-                "// Hitsound: {filename}\n",
-                "alias \"{alias_name}\" \"tf_dingaling_pitchmindmg {min_pitch}; tf_dingaling_pitchmaxdmg {max_pitch}\"\n"
-            ),
-            filename = record.filename,
-            alias_name = alias_name,
-            min_pitch = record.min_pitch,
-            max_pitch = record.max_pitch
-        ));
+    #[test]
+    fn test_normalize_hitsound_filename() {
+        assert_eq!(normalize_hitsound_filename("ding"), "ding.wav");
+        assert_eq!(normalize_hitsound_filename("ding.wav"), "ding.wav");
     }
 
-    content
-}
-
-fn resolve_cfg_dir(tf2_dir: &PathBuf) -> Result<PathBuf, String> {
-    Ok(resolve_tf2_root(tf2_dir)?.join("cfg"))
-}
-
-fn resolve_autoexec_path_with_mode(
-    tf2_dir: &PathBuf,
-    config_mode: Option<&str>,
-) -> Result<PathBuf, String> {
-    let cfg_dir = resolve_cfg_dir(tf2_dir)?;
-    match config_mode.map(|value| value.to_ascii_lowercase()) {
-        Some(mode) if mode == "vanilla" => Ok(cfg_dir.join("autoexec.cfg")),
-        Some(mode) if mode == "mastercomfig" => Ok(cfg_dir.join("overrides").join("autoexec.cfg")),
-        _ => {
-            let mastercomfig_autoexec = cfg_dir.join("overrides").join("autoexec.cfg");
-            if mastercomfig_autoexec.exists() {
-                return Ok(mastercomfig_autoexec);
-            }
-
-            Ok(cfg_dir.join("autoexec.cfg"))
-        }
-    }
-}
-
-fn ensure_exec_line(path: &PathBuf, exec_line: &str) -> Result<bool, String> {
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent).map_err(|e| e.to_string())?;
+    #[test]
+    fn test_build_cfg_alias_name() {
+        let alias = build_cfg_alias_name("ding.wav", "0123456789abcdef");
+        assert!(alias.starts_with("hitman_apply_ding_01234567"));
     }
 
-    let existing = read_to_string(path).unwrap_or_default();
-    if existing.lines().any(|line| line.trim() == exec_line) {
-        return Ok(false);
+    #[test]
+    fn test_build_hitman_cfg_content_empty() {
+        let content = build_hitman_cfg_content(&[]);
+        assert!(content.contains("No remembered hitsounds"));
     }
 
-    let mut updated = existing;
-    if !updated.is_empty() && !updated.ends_with('\n') {
-        updated.push('\n');
+    #[test]
+    fn test_upsert_find_remove_pitch_record() {
+        let mut manifest = PitchManifest::default();
+        upsert_pitch_record(&mut manifest, "a.wav".into(), "hash1".into(), 100, 200);
+        assert!(find_pitch_record(&manifest, "a.wav", "hash1").is_some());
+        remove_pitch_record(&mut manifest, "a.wav", Some("hash1"));
+        assert!(find_pitch_record(&manifest, "a.wav", "hash1").is_none());
     }
-    updated.push_str(exec_line);
-    updated.push('\n');
 
-    write(path, updated).map_err(|e| e.to_string())?;
-    Ok(true)
+    #[test]
+    fn test_compute_file_hash_and_ensure_exec_line() {
+        let mut tmp = PathBuf::from(std::env::temp_dir());
+        tmp.push("hitman_test_file.txt");
+        let _ = fs::remove_file(&tmp);
+        fs::write(&tmp, b"abc").unwrap();
+
+        let hash = compute_file_hash(&tmp).unwrap();
+        assert_eq!(hash, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+        let mut exec_path = PathBuf::from(std::env::temp_dir());
+        exec_path.push("hitman_autoexec_test.cfg");
+        let _ = fs::remove_file(&exec_path);
+
+        let added = ensure_exec_line(&exec_path, "exec hitman.cfg").unwrap();
+        assert!(added);
+        let added_again = ensure_exec_line(&exec_path, "exec hitman.cfg").unwrap();
+        assert!(!added_again);
+
+        let _ = fs::remove_file(&tmp);
+        let _ = fs::remove_file(&exec_path);
+    }
 }
 
 #[tauri::command]

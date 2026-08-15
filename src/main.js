@@ -346,6 +346,7 @@ async function updateConsoleCommands() {
     const modeLabel = configMode === 'auto' ? 'Auto-detect' : configMode === 'mastercomfig' ? 'Mastercomfig' : 'Vanilla TF2';
 
     if (!selectedHitsound) {
+        // This should never run, but just in case
         elements.consoleCommands.value =
 `Select a hitsound to preview the generated hitman.cfg.
 Config mode: ${modeLabel}

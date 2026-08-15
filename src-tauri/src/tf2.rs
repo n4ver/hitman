@@ -1,8 +1,5 @@
 use std::fs::{create_dir_all, read_to_string, write};
-use std::path::{Path, PathBuf};
-
-use crate::manifest::PitchRecord;
-use crate::helpers::build_cfg_alias_name;
+use std::path::PathBuf;
 
 pub fn resolve_tf2_root(tf2_custom_dir: &PathBuf) -> Result<PathBuf, String> {
     let folder_name = tf2_custom_dir

@@ -36,7 +36,6 @@ body {
 
 .hitsound-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
     background: #3a3a3a;
@@ -48,6 +47,14 @@ body {
 .hitsound-item.selected {
     border: 1px solid var(--accent);
     background: #4a3a32;
+}
+
+.hitsound-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
 }
 
 .right-panel {
@@ -72,6 +79,8 @@ button:hover { background-color: #555; }
 button.primary { background-color: var(--accent); }
 button.primary:hover { background-color: var(--accent-hover); }
 button.success { background-color: #3b823e; padding: 1rem; font-size: 1.1rem; width: 100%;}
+button.secondary { background-color: #4a4a4a; }
+button.secondary:hover { background-color: #5a5a5a; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .control-group {
@@ -92,8 +101,19 @@ textarea {
 }
 
 .hitsound-name {
-    flex-grow: 1;
     user-select: none;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hitsound-meta {
+    font-size: 0.78rem;
+    color: #b8b8b8;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .btn-delete {
@@ -111,4 +131,33 @@ textarea {
 .btn-delete:hover {
     background-color: #ff4c4c;
     color: white;
+}
+
+.action-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.action-buttons button {
+    width: auto;
+    flex: 1 1 160px;
+}
+
+select {
+    background: #444;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 0.45rem 0.6rem;
+}
+
+.info {
+    line-height: 1.5;
 }

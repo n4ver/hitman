@@ -27,8 +27,7 @@ fn get_hitsound_alias(state: State<'_, AppState>, hitsound_name: String) -> Resu
         return Err("Hitsound file not found".into());
     }
 
-    let content_hash = compute_file_hash(&file_path)?;
-    Ok(build_cfg_alias_name(&hitsound_name, &content_hash))
+    Ok(build_cfg_alias_name(&hitsound_name))
 }
 
 #[cfg(test)]
@@ -51,8 +50,8 @@ mod tests {
 
     #[test]
     fn test_build_cfg_alias_name() {
-        let alias = build_cfg_alias_name("ding.wav", "0123456789abcdef");
-        assert!(alias.starts_with("hitman_apply_ding_01234567"));
+        let alias = build_cfg_alias_name("ding.wav");
+        assert_eq!(alias, "hitman_apply_ding");
     }
 
     #[test]
@@ -84,9 +83,9 @@ mod tests {
         exec_path.push("hitman_autoexec_test.cfg");
         let _ = fs::remove_file(&exec_path);
 
-        let added = ensure_exec_line(&exec_path, "exec hitman.cfg").unwrap();
+        let added = ensure_exec_line(&exec_path, "exec overrides/hitman.cfg").unwrap();
         assert!(added);
-        let added_again = ensure_exec_line(&exec_path, "exec hitman.cfg").unwrap();
+        let added_again = ensure_exec_line(&exec_path, "exec overrides/hitman.cfg").unwrap();
         assert!(!added_again);
 
         let _ = fs::remove_file(&tmp);
@@ -218,16 +217,16 @@ fn write_hitman_cfg(state: State<'_, AppState>, config_mode: Option<String>) -> 
     let tf2_guard = state.tf2_dir.lock().unwrap();
     let tf2_dir = tf2_guard.as_ref().ok_or("TF2 Custom folder not selected")?;
 
-    let cfg_dir = resolve_cfg_dir(tf2_dir)?;
-    create_dir_all(&cfg_dir).map_err(|e| e.to_string())?;
+    let cfg_path = resolve_hitman_cfg_path_with_mode(tf2_dir, config_mode.as_deref())?;
+    if let Some(parent) = cfg_path.parent() {
+        create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
 
-    let cfg_path = cfg_dir.join("hitman.cfg");
     let manifest = state.pitch_manifest.lock().unwrap();
     let cfg_content = build_hitman_cfg_content(&manifest.records);
-    write(cfg_path, cfg_content).map_err(|e| e.to_string())?;
+    write(&cfg_path, cfg_content).map_err(|e| e.to_string())?;
 
-    let _ = config_mode;
-    Ok("hitman.cfg written successfully!".into())
+    Ok(format!("hitman.cfg written successfully at {}", cfg_path.display()))
 }
 
 #[tauri::command]
@@ -243,16 +242,13 @@ fn link_hitman_cfg_to_autoexec_with_mode(
     let tf2_guard = state.tf2_dir.lock().unwrap();
     let tf2_dir = tf2_guard.as_ref().ok_or("TF2 Custom folder not selected")?;
 
-    let cfg_dir = resolve_cfg_dir(tf2_dir)?;
-    create_dir_all(&cfg_dir).map_err(|e| e.to_string())?;
-
-    let hitman_cfg_path = cfg_dir.join("hitman.cfg");
+    let hitman_cfg_path = resolve_hitman_cfg_path_with_mode(tf2_dir, config_mode.as_deref())?;
     if !hitman_cfg_path.exists() {
-        return Err("hitman.cfg does not exist yet".into());
+        return Err(format!("hitman.cfg does not exist yet at {}", hitman_cfg_path.display()));
     }
 
     let autoexec_path = resolve_autoexec_path_with_mode(tf2_dir, config_mode.as_deref())?;
-    let exec_line = "exec hitman.cfg";
+    let exec_line = "exec overrides/hitman.cfg";
     let added = ensure_exec_line(&autoexec_path, exec_line)?;
 
     if added {

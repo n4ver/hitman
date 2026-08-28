@@ -38,6 +38,13 @@ fn test_resolve_tf2_and_autoexec_paths() {
     let resolved_master = resolve_autoexec_path_with_mode(&custom, Some("mastercomfig")).unwrap();
     assert_eq!(resolved_master, overrides_autoexec);
 
+    // hitman.cfg should follow the same layer as autoexec
+    let resolved_hitman_master = resolve_hitman_cfg_path_with_mode(&custom, Some("mastercomfig")).unwrap();
+    assert_eq!(resolved_hitman_master, cfg_dir.join("overrides").join("hitman.cfg"));
+
+    let resolved_hitman_vanilla = resolve_hitman_cfg_path_with_mode(&custom, Some("vanilla")).unwrap();
+    assert_eq!(resolved_hitman_vanilla, cfg_dir.join("hitman.cfg"));
+
     // ensure_exec_line works on the vanilla path too
     let _ = fs::remove_file(&vanilla_autoexec);
     let added = ensure_exec_line(&vanilla_autoexec, "exec hitman.cfg").unwrap();

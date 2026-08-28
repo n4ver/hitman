@@ -40,6 +40,18 @@ pub fn resolve_autoexec_path_with_mode(
     }
 }
 
+pub fn resolve_hitman_cfg_path_with_mode(
+    tf2_dir: &PathBuf,
+    config_mode: Option<&str>,
+) -> Result<PathBuf, String> {
+    let autoexec_path = resolve_autoexec_path_with_mode(tf2_dir, config_mode)?;
+    let parent = autoexec_path
+        .parent()
+        .ok_or("Could not resolve autoexec parent directory".to_string())?;
+
+    Ok(parent.join("hitman.cfg"))
+}
+
 pub fn ensure_exec_line(path: &PathBuf, exec_line: &str) -> Result<bool, String> {
     if let Some(parent) = path.parent() {
         create_dir_all(parent).map_err(|e| e.to_string())?;

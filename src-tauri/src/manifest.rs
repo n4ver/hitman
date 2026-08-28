@@ -134,7 +134,7 @@ pub fn build_hitman_cfg_content(records: &[PitchRecord]) -> String {
     }
 
     for record in sorted_records {
-        let alias_name = build_cfg_alias_name(&record.filename, &record.content_hash);
+        let alias_name = build_cfg_alias_name(&record.filename);
         content.push_str(&format!(
             concat!(
                 "// Hitsound: {filename}\n",

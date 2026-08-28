@@ -27,12 +27,7 @@ pub fn normalize_hitsound_filename(name: &str) -> String {
     }
 }
 
-pub fn build_cfg_alias_name(filename: &str, content_hash: &str) -> String {
+pub fn build_cfg_alias_name(filename: &str) -> String {
     let stem = filename.trim_end_matches(".wav");
-    let hash_prefix = &content_hash[..content_hash.len().min(8)];
-    format!(
-        "hitman_apply_{}_{}",
-        sanitize_cfg_name(stem),
-        sanitize_cfg_name(hash_prefix)
-    )
+    format!("hitman_apply_{}", sanitize_cfg_name(stem))
 }
